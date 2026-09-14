@@ -17,6 +17,8 @@ import {
   type Priority,
   type BugStatus,
 } from "../../lib/forms";
+import { useToast } from "../../components/Toast";
+import Skeleton from "../../components/Skeleton";
 
 const emptyForm: CreateBugPayload = {
   title: "",
@@ -30,17 +32,21 @@ const emptyForm: CreateBugPayload = {
   tags: [],
 };
 
+type Tab = "create" | "forms";
+
 export default function FeedbackForms() {
   const [bugs, setBugs] = useState<Bug[]>([]);
   const [draft, setDraft] = useState<CreateBugPayload>(emptyForm);
   const [tagInput, setTagInput] = useState("");
-  const [active, setActive] = useState<Bug | null>(null);
   const [editingBug, setEditingBug] = useState<Bug | null>(null);
   const [editTagInput, setEditTagInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>("forms");
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const { addToast } = useToast();
 
   const loadBugs = useCallback(async () => {
     try {
@@ -48,10 +54,11 @@ export default function FeedbackForms() {
       setBugs(data);
     } catch (err) {
       console.error("Failed to load bugs:", err);
+      addToast("Failed to load forms", "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [addToast]);
 
   useEffect(() => {
     loadBugs();
@@ -76,8 +83,11 @@ export default function FeedbackForms() {
       setBugs((prev) => [newBug, ...prev]);
       setDraft(emptyForm);
       setTagInput("");
+      setTab("forms");
+      addToast("Form created successfully", "success");
     } catch (err) {
       console.error("Failed to create bug:", err);
+      addToast("Failed to create form", "error");
     } finally {
       setSubmitting(false);
     }
@@ -114,35 +124,25 @@ export default function FeedbackForms() {
       setBugs((prev) =>
         prev.map((b) => (b.formId === editingBug.formId ? updated : b))
       );
-      if (active?.formId === editingBug.formId) {
-        setActive(updated);
-      }
       setEditingBug(null);
+      addToast("Form updated successfully", "success");
     } catch (err) {
       console.error("Failed to update bug form:", err);
+      addToast("Failed to update form", "error");
     } finally {
       setSavingEdit(false);
     }
   };
 
   const removeBug = async (formId: string) => {
-    if (!window.confirm("Are you sure you want to delete this feedback form?")) return;
     try {
       await deleteBug(formId);
       setBugs((prev) => prev.filter((b) => b.formId !== formId));
-      if (active?.formId === formId) setActive(null);
-      if (editingBug?.formId === formId) setEditingBug(null);
+      setConfirmDelete(null);
+      addToast("Form deleted", "success");
     } catch (err) {
       console.error("Failed to delete bug:", err);
-    }
-  };
-
-  const handleStatusChange = async (formId: string, status: BugStatus) => {
-    try {
-      const updated = await updateBug(formId, { status });
-      setBugs((prev) => prev.map((b) => (b.formId === formId ? updated : b)));
-    } catch (err) {
-      console.error("Failed to update status:", err);
+      addToast("Failed to delete form", "error");
     }
   };
 
@@ -150,6 +150,7 @@ export default function FeedbackForms() {
     const url = `${window.location.origin}/#/feedback/${formId}`;
     navigator.clipboard.writeText(url);
     setCopySuccess(formId);
+    addToast("Link copied to clipboard", "success");
     setTimeout(() => setCopySuccess(null), 2000);
   };
 
@@ -159,358 +160,346 @@ export default function FeedbackForms() {
   ) => setDraft((d) => ({ ...d, [key]: value }));
 
   if (loading) {
-    return (
-      <div className="admin-loading">
-        <p>Loading forms...</p>
-      </div>
-    );
+    return <Skeleton type="form" />;
   }
 
   return (
-    <>
-      <div className="admin-head">
-        <div>
-          <h1>Feedback forms</h1>
-          <p>Create and customize forms to collect bug and feedback info from your users.</p>
+    <div className="fb">
+      {/* Page Header */}
+      <div className="fb-header">
+        <div className="fb-header-left">
+          <h1 className="fb-title">Feedback Forms</h1>
+          <p className="fb-subtitle">Create forms to collect bug reports from your users</p>
         </div>
-        <span className="count">{bugs.length} forms</span>
-      </div>
-
-      <div className="admin-grid">
-        {/* New Form Builder */}
-        <form className="form-builder" onSubmit={addBug}>
-          <h2>New feedback form</h2>
-          <label>
-            <span>Form Title *</span>
-            <input
-              value={draft.title}
-              onChange={(e) => update("title", e.target.value)}
-              placeholder="e.g. Checkout bug report, Customer Feedback"
-              required
-            />
-          </label>
-          <label>
-            <span>Description / Instructions</span>
-            <textarea
-              value={draft.description}
-              onChange={(e) => update("description", e.target.value)}
-              placeholder="Explain to users what details to provide..."
-              rows={3}
-            />
-          </label>
-          <div className="two-col">
-            <label>
-              <span>Default Bug type</span>
-              <select
-                value={draft.bugType}
-                onChange={(e) => update("bugType", e.target.value as BugType)}
-              >
-                {BUG_TYPES.map((b) => (
-                  <option key={b}>{b}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Default Severity</span>
-              <select
-                value={draft.severity}
-                onChange={(e) =>
-                  update("severity", e.target.value as Severity)
-                }
-              >
-                {SEVERITIES.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div className="two-col">
-            <label>
-              <span>Priority</span>
-              <select
-                value={draft.priority}
-                onChange={(e) =>
-                  update("priority", e.target.value as Priority)
-                }
-              >
-                {PRIORITIES.map((p) => (
-                  <option key={p}>{p}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Target Environment</span>
-              <input
-                value={draft.environment}
-                onChange={(e) => update("environment", e.target.value)}
-                placeholder="e.g. Production, Staging"
-              />
-            </label>
-          </div>
-          <label>
-            <span>Assignee / Team</span>
-            <input
-              value={draft.assignee}
-              onChange={(e) => update("assignee", e.target.value)}
-              placeholder="e.g. Frontend Team"
-            />
-          </label>
-          <label>
-            <span>Tags (comma separated)</span>
-            <input
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              placeholder="ui, payment, checkout"
-            />
-          </label>
+        <div className="fb-tabs">
           <button
-            className="btn primary lg block"
-            type="submit"
-            disabled={submitting}
+            className={`fb-tab ${tab === "forms" ? "active" : ""}`}
+            onClick={() => setTab("forms")}
           >
-            {submitting ? "Creating..." : "+ Create form"}
+            <i className="fa-solid fa-layer-group" />
+            My Forms
+            {bugs.length > 0 && <span className="fb-tab-count">{bugs.length}</span>}
           </button>
-        </form>
-
-        {/* Forms List */}
-        <div className="form-list">
-          <h2>Created forms</h2>
-          {bugs.length === 0 && (
-            <p className="empty">
-              No forms yet. Create your first one using the builder on the left.
-            </p>
-          )}
-          {bugs.map((b) => (
-            <div className="form-item" key={b.formId}>
-              <div className="fi-top">
-                <h3>{b.title}</h3>
-                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                  <button
-                    className="linkish"
-                    onClick={() => startEditing(b)}
-                    style={{ color: "var(--primary)", fontSize: "13px", fontWeight: 600 }}
-                  >
-                    <i className="fa-solid fa-pen-to-square"></i> Edit
-                  </button>
-                  <button
-                    className="linkish danger"
-                    onClick={() => removeBug(b.formId)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-              <p>{b.description || "No description provided."}</p>
-              <div className="fi-meta">
-                <span
-                  className={`badge sev-${b.severity.toLowerCase()}`}
-                >
-                  {b.severity}
-                </span>
-                <span className="badge badge-type">{b.bugType}</span>
-                <span className="badge badge-priority">
-                  {b.priority}
-                </span>
-                <span
-                  className={`badge status-${b.status
-                    .toLowerCase()
-                    .replace(/\s+/g, "-")}`}
-                >
-                  {b.status}
-                </span>
-                <span className="fi-assignee">{b.assignee}</span>
-              </div>
-              {b.tags && b.tags.length > 0 && (
-                <div className="fi-tags">
-                  {b.tags.map((t) => (
-                    <span key={t}>#{t}</span>
-                  ))}
-                </div>
-              )}
-              <div className="fi-actions">
-                <button
-                  className="btn sm btn-copy"
-                  onClick={() => copyLink(b.formId)}
-                >
-                  {copySuccess === b.formId
-                    ? "✓ Copied!"
-                    : "Copy link"}
-                </button>
-                <a
-                  href={`/#/feedback/${b.formId}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn sm ghost"
-                >
-                  Open form ↗
-                </a>
-                <button
-                  className="btn sm ghost"
-                  onClick={() => setActive(b)}
-                >
-                  Details
-                </button>
-              </div>
-            </div>
-          ))}
+          <button
+            className={`fb-tab ${tab === "create" ? "active" : ""}`}
+            onClick={() => setTab("create")}
+          >
+            <i className="fa-solid fa-plus" />
+            Create New
+          </button>
         </div>
       </div>
 
-      {/* Edit Form Modal */}
-      {editingBug && (
-        <div className="modal" onClick={() => setEditingBug(null)}>
-          <div
-            className="modal-card"
-            style={{ maxWidth: "600px" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              className="modal-x"
-              onClick={() => setEditingBug(null)}
-            >
-              ✕
-            </button>
-            <span className="eyebrow">{editingBug.formId}</span>
-            <h2 style={{ marginBottom: "16px" }}>Edit Feedback Form</h2>
-
-            <form onSubmit={handleSaveEdit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-              <label>
-                <span style={{ fontWeight: 600, fontSize: "13px" }}>Form Title *</span>
+      {/* Create Form Tab */}
+      {tab === "create" && (
+        <form className="fb-create" onSubmit={addBug}>
+          <div className="fb-create-body">
+            <div className="fb-section">
+              <div className="fb-section-head">
+                <i className="fa-solid fa-pen-to-square" />
+                <span>Form Details</span>
+              </div>
+              <div className="fb-field">
+                <label className="fb-label">Title *</label>
                 <input
-                  value={editingBug.title}
-                  onChange={(e) =>
-                    setEditingBug({ ...editingBug, title: e.target.value })
-                  }
+                  className="fb-input"
+                  value={draft.title}
+                  onChange={(e) => update("title", e.target.value)}
+                  placeholder="e.g. Checkout bug report"
                   required
+                  autoFocus
                 />
-              </label>
-
-              <label>
-                <span style={{ fontWeight: 600, fontSize: "13px" }}>Description / Subtitle</span>
+              </div>
+              <div className="fb-field">
+                <label className="fb-label">Description</label>
                 <textarea
-                  value={editingBug.description}
-                  onChange={(e) =>
-                    setEditingBug({ ...editingBug, description: e.target.value })
-                  }
+                  className="fb-input fb-textarea"
+                  value={draft.description}
+                  onChange={(e) => update("description", e.target.value)}
+                  placeholder="What details should users provide when submitting?"
                   rows={3}
                 />
-              </label>
+              </div>
+            </div>
 
-              <div className="two-col">
-                <label>
-                  <span style={{ fontWeight: 600, fontSize: "13px" }}>Bug Type</span>
+            <div className="fb-section">
+              <div className="fb-section-head">
+                <i className="fa-solid fa-sliders" />
+                <span>Configuration</span>
+              </div>
+              <div className="fb-grid-2">
+                <div className="fb-field">
+                  <label className="fb-label">Bug Type</label>
                   <select
-                    value={editingBug.bugType}
-                    onChange={(e) =>
-                      setEditingBug({
-                        ...editingBug,
-                        bugType: e.target.value as BugType,
-                      })
-                    }
+                    className="fb-input fb-select"
+                    value={draft.bugType}
+                    onChange={(e) => update("bugType", e.target.value as BugType)}
                   >
                     {BUG_TYPES.map((b) => (
                       <option key={b}>{b}</option>
                     ))}
                   </select>
-                </label>
-
-                <label>
-                  <span style={{ fontWeight: 600, fontSize: "13px" }}>Severity</span>
+                </div>
+                <div className="fb-field">
+                  <label className="fb-label">Severity</label>
                   <select
-                    value={editingBug.severity}
-                    onChange={(e) =>
-                      setEditingBug({
-                        ...editingBug,
-                        severity: e.target.value as Severity,
-                      })
-                    }
+                    className="fb-input fb-select"
+                    value={draft.severity}
+                    onChange={(e) => update("severity", e.target.value as Severity)}
                   >
                     {SEVERITIES.map((s) => (
                       <option key={s}>{s}</option>
                     ))}
                   </select>
-                </label>
-              </div>
-
-              <div className="two-col">
-                <label>
-                  <span style={{ fontWeight: 600, fontSize: "13px" }}>Priority</span>
+                </div>
+                <div className="fb-field">
+                  <label className="fb-label">Priority</label>
                   <select
-                    value={editingBug.priority}
-                    onChange={(e) =>
-                      setEditingBug({
-                        ...editingBug,
-                        priority: e.target.value as Priority,
-                      })
-                    }
+                    className="fb-input fb-select"
+                    value={draft.priority}
+                    onChange={(e) => update("priority", e.target.value as Priority)}
                   >
                     {PRIORITIES.map((p) => (
                       <option key={p}>{p}</option>
                     ))}
                   </select>
-                </label>
-
-                <label>
-                  <span style={{ fontWeight: 600, fontSize: "13px" }}>Status</span>
-                  <select
-                    value={editingBug.status}
-                    onChange={(e) =>
-                      setEditingBug({
-                        ...editingBug,
-                        status: e.target.value as BugStatus,
-                      })
-                    }
-                  >
-                    {BUG_STATUSES.map((s) => (
-                      <option key={s}>{s}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              <div className="two-col">
-                <label>
-                  <span style={{ fontWeight: 600, fontSize: "13px" }}>Assignee / Team</span>
+                </div>
+                <div className="fb-field">
+                  <label className="fb-label">Environment</label>
                   <input
-                    value={editingBug.assignee}
-                    onChange={(e) =>
-                      setEditingBug({ ...editingBug, assignee: e.target.value })
-                    }
+                    className="fb-input"
+                    value={draft.environment}
+                    onChange={(e) => update("environment", e.target.value)}
+                    placeholder="e.g. Production"
                   />
-                </label>
-
-                <label>
-                  <span style={{ fontWeight: 600, fontSize: "13px" }}>Target Environment</span>
-                  <input
-                    value={editingBug.environment || ""}
-                    onChange={(e) =>
-                      setEditingBug({ ...editingBug, environment: e.target.value })
-                    }
-                  />
-                </label>
+                </div>
               </div>
+            </div>
 
-              <label>
-                <span style={{ fontWeight: 600, fontSize: "13px" }}>Tags (comma separated)</span>
+            <div className="fb-section">
+              <div className="fb-section-head">
+                <i className="fa-solid fa-users" />
+                <span>Assignment</span>
+              </div>
+              <div className="fb-grid-2">
+                <div className="fb-field">
+                  <label className="fb-label">Assignee</label>
+                  <input
+                    className="fb-input"
+                    value={draft.assignee}
+                    onChange={(e) => update("assignee", e.target.value)}
+                    placeholder="e.g. Frontend Team"
+                  />
+                </div>
+                <div className="fb-field">
+                  <label className="fb-label">Tags</label>
+                  <input
+                    className="fb-input"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    placeholder="ui, payment, checkout"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="fb-create-footer">
+            <button
+              type="button"
+              className="fb-btn fb-btn-ghost"
+              onClick={() => { setDraft(emptyForm); setTagInput(""); setTab("forms"); }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="fb-btn fb-btn-primary"
+              disabled={submitting || !draft.title.trim()}
+            >
+              {submitting ? (
+                <><i className="fa-solid fa-circle-notch fa-spin" /> Creating...</>
+              ) : (
+                <><i className="fa-solid fa-plus" /> Create Form</>
+              )}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Forms List Tab */}
+      {tab === "forms" && (
+        <div className="fb-list">
+          {bugs.length === 0 ? (
+            <div className="fb-empty">
+              <div className="fb-empty-icon">
+                <i className="fa-solid fa-file-circle-plus" />
+              </div>
+              <h3>No forms yet</h3>
+              <p>Create your first feedback form to start collecting bug reports.</p>
+              <button className="fb-btn fb-btn-primary" onClick={() => setTab("create")}>
+                <i className="fa-solid fa-plus" /> Create Form
+              </button>
+            </div>
+          ) : (
+            <div className="fb-cards">
+              {bugs.map((b) => (
+                <div className="fb-card" key={b.formId}>
+                  <div className="fb-card-header">
+                    <div className="fb-card-title-group">
+                      <h3 className="fb-card-title">{b.title}</h3>
+                      <span className={`fb-card-status fb-status-${b.status.toLowerCase().replace(/\s+/g, "-")}`}>
+                        {b.status}
+                      </span>
+                    </div>
+                    <div className="fb-card-actions">
+                      <button
+                        className="fb-icon-btn"
+                        onClick={() => copyLink(b.formId)}
+                        title="Copy link"
+                      >
+                        <i className={copySuccess === b.formId ? "fa-solid fa-check" : "fa-solid fa-link"} />
+                      </button>
+                      <a
+                        href={`/#/feedback/${b.formId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="fb-icon-btn"
+                        title="Open form"
+                      >
+                        <i className="fa-solid fa-arrow-up-right-from-square" />
+                      </a>
+                      <button
+                        className="fb-icon-btn"
+                        onClick={() => startEditing(b)}
+                        title="Edit"
+                      >
+                        <i className="fa-solid fa-pen" />
+                      </button>
+                      <button
+                        className="fb-icon-btn fb-icon-btn-danger"
+                        onClick={() => setConfirmDelete(b.formId)}
+                        title="Delete"
+                      >
+                        <i className="fa-solid fa-trash" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {b.description && (
+                    <p className="fb-card-desc">{b.description}</p>
+                  )}
+
+                  <div className="fb-card-meta">
+                    <span className={`fb-badge fb-sev-${b.severity.toLowerCase()}`}>{b.severity}</span>
+                    <span className="fb-badge fb-badge-type">{b.bugType}</span>
+                    <span className="fb-badge fb-badge-priority">{b.priority}</span>
+                    {b.assignee && b.assignee !== "Unassigned" && (
+                      <span className="fb-badge fb-badge-assignee">
+                        <i className="fa-solid fa-user" /> {b.assignee}
+                      </span>
+                    )}
+                  </div>
+
+                  {b.tags && b.tags.length > 0 && (
+                    <div className="fb-card-tags">
+                      {b.tags.map((t) => (
+                        <span key={t} className="fb-tag">#{t}</span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Delete Confirmation */}
+                  {confirmDelete === b.formId && (
+                    <div className="fb-delete-confirm">
+                      <span>Delete this form?</span>
+                      <div className="fb-delete-actions">
+                        <button className="fb-btn fb-btn-sm fb-btn-ghost" onClick={() => setConfirmDelete(null)}>
+                          Cancel
+                        </button>
+                        <button className="fb-btn fb-btn-sm fb-btn-danger" onClick={() => removeBug(b.formId)}>
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingBug && (
+        <div className="modal" onClick={() => setEditingBug(null)}>
+          <div className="modal-card" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
+            <button className="modal-x" onClick={() => setEditingBug(null)}>✕</button>
+            <span className="eyebrow">{editingBug.formId}</span>
+            <h2 style={{ marginBottom: 16 }}>Edit Form</h2>
+
+            <form onSubmit={handleSaveEdit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div className="fb-field">
+                <label className="fb-label">Title *</label>
                 <input
-                  value={editTagInput}
-                  onChange={(e) => setEditTagInput(e.target.value)}
+                  className="fb-input"
+                  value={editingBug.title}
+                  onChange={(e) => setEditingBug({ ...editingBug, title: e.target.value })}
+                  required
                 />
-              </label>
-
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "12px" }}>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  onClick={() => setEditingBug(null)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn primary"
-                  disabled={savingEdit}
-                >
+              </div>
+              <div className="fb-field">
+                <label className="fb-label">Description</label>
+                <textarea
+                  className="fb-input fb-textarea"
+                  value={editingBug.description}
+                  onChange={(e) => setEditingBug({ ...editingBug, description: e.target.value })}
+                  rows={3}
+                />
+              </div>
+              <div className="fb-grid-2">
+                <div className="fb-field">
+                  <label className="fb-label">Bug Type</label>
+                  <select className="fb-input fb-select" value={editingBug.bugType} onChange={(e) => setEditingBug({ ...editingBug, bugType: e.target.value as BugType })}>
+                    {BUG_TYPES.map((b) => <option key={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div className="fb-field">
+                  <label className="fb-label">Severity</label>
+                  <select className="fb-input fb-select" value={editingBug.severity} onChange={(e) => setEditingBug({ ...editingBug, severity: e.target.value as Severity })}>
+                    {SEVERITIES.map((s) => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="fb-field">
+                  <label className="fb-label">Priority</label>
+                  <select className="fb-input fb-select" value={editingBug.priority} onChange={(e) => setEditingBug({ ...editingBug, priority: e.target.value as Priority })}>
+                    {PRIORITIES.map((p) => <option key={p}>{p}</option>)}
+                  </select>
+                </div>
+                <div className="fb-field">
+                  <label className="fb-label">Status</label>
+                  <select className="fb-input fb-select" value={editingBug.status} onChange={(e) => setEditingBug({ ...editingBug, status: e.target.value as BugStatus })}>
+                    {BUG_STATUSES.map((s) => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="fb-grid-2">
+                <div className="fb-field">
+                  <label className="fb-label">Assignee</label>
+                  <input className="fb-input" value={editingBug.assignee} onChange={(e) => setEditingBug({ ...editingBug, assignee: e.target.value })} />
+                </div>
+                <div className="fb-field">
+                  <label className="fb-label">Environment</label>
+                  <input className="fb-input" value={editingBug.environment || ""} onChange={(e) => setEditingBug({ ...editingBug, environment: e.target.value })} />
+                </div>
+              </div>
+              <div className="fb-field">
+                <label className="fb-label">Tags</label>
+                <input className="fb-input" value={editTagInput} onChange={(e) => setEditTagInput(e.target.value)} placeholder="tag1, tag2" />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="fb-btn fb-btn-ghost" onClick={() => setEditingBug(null)}>Cancel</button>
+                <button type="submit" className="fb-btn fb-btn-primary" disabled={savingEdit}>
                   {savingEdit ? "Saving..." : "Save Changes"}
                 </button>
               </div>
@@ -518,111 +507,6 @@ export default function FeedbackForms() {
           </div>
         </div>
       )}
-
-      {/* Details View Modal */}
-      {active && (
-        <div className="modal" onClick={() => setActive(null)}>
-          <div
-            className="modal-card"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              className="modal-x"
-              onClick={() => setActive(null)}
-            >
-              ✕
-            </button>
-            <span className="eyebrow">
-              {active.formId}
-            </span>
-            <h2>{active.title}</h2>
-            <p>{active.description || "No description provided."}</p>
-
-            <div className="modal-meta">
-              <div className="two-col">
-                <label>
-                  <span>Status</span>
-                  <select
-                    value={active.status}
-                    onChange={(e) =>
-                      handleStatusChange(
-                        active.formId,
-                        e.target.value as BugStatus
-                      )
-                    }
-                  >
-                    {BUG_STATUSES.map((s) => (
-                      <option key={s}>{s}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span>Assignee</span>
-                  <input
-                    value={active.assignee}
-                    onChange={(e) => {
-                      const updated = {
-                        ...active,
-                        assignee: e.target.value,
-                      };
-                      setActive(updated);
-                    }}
-                    onBlur={() =>
-                      updateBug(active.formId, {
-                        assignee: active.assignee,
-                      })
-                    }
-                  />
-                </label>
-              </div>
-              <div className="fi-meta">
-                <span
-                  className={`badge sev-${active.severity.toLowerCase()}`}
-                >
-                  {active.severity}
-                </span>
-                <span className="badge badge-type">
-                  {active.bugType}
-                </span>
-                <span className="badge badge-priority">
-                  {active.priority}
-                </span>
-              </div>
-              {active.tags && active.tags.length > 0 && (
-                <label>
-                  <span>Tags</span>
-                  <div className="fi-tags">
-                    {active.tags.map((t) => (
-                      <span key={t}>#{t}</span>
-                    ))}
-                  </div>
-                </label>
-              )}
-            </div>
-
-            <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
-              <button
-                className="btn sm btn-copy"
-                onClick={() => copyLink(active.formId)}
-              >
-                {copySuccess === active.formId
-                  ? "✓ Copied!"
-                  : "Copy shareable link"}
-              </button>
-              <button
-                className="btn sm ghost"
-                onClick={() => {
-                  const target = active;
-                  setActive(null);
-                  startEditing(target);
-                }}
-              >
-                <i className="fa-solid fa-pen-to-square"></i> Edit Full Form
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   );
 }

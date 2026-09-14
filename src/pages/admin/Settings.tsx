@@ -3,16 +3,8 @@ import { getSession, logout } from "../../lib/auth";
 import { useTheme } from "../../lib/theme";
 
 const ADMIN_EMAILS = [
-  {
-    email: "Tanish4181@gmail.com",
-    role: "Primary Administrator",
-    name: "Tanish",
-  },
-  {
-    email: "sajalsinghal62650@gmail.com",
-    role: "Administrator",
-    name: "Sajal Singhal",
-  },
+  { email: "Tanish4181@gmail.com", role: "Primary Administrator", name: "Tanish" },
+  { email: "sajalsinghal62650@gmail.com", role: "Administrator", name: "Sajal Singhal" },
 ];
 
 export default function Settings() {
@@ -29,7 +21,7 @@ export default function Settings() {
   };
 
   const handleSignOut = async () => {
-    if (window.confirm("Are you sure you want to sign out of BugPilot?")) {
+    if (window.confirm("Are you sure you want to sign out?")) {
       await logout();
       window.location.href = "/#/auth";
     }
@@ -37,85 +29,72 @@ export default function Settings() {
 
   return (
     <>
-      {/* Header */}
       <div className="admin-head">
         <div>
           <h1>Settings</h1>
-          <p>View your profile, administrator accounts, theme preferences, and session controls.</p>
+          <p>Manage your profile, administrators, theme, and session.</p>
         </div>
       </div>
 
-      <div className="simple-settings-container">
-        {/* 1. Profile Email ID */}
-        <div className="simple-settings-card">
-          <div className="simple-card-header">
-            <div className="simple-card-title">
-              <i className="fa-solid fa-circle-user"></i>
-              <h3>Your Profile</h3>
+      <div className="st-container">
+        {/* Profile */}
+        <div className="st-card">
+          <div className="st-card-header">
+            <div className="st-card-icon">
+              <i className="fa-solid fa-circle-user" />
             </div>
-            <span className="badge badge-priority">Active Session</span>
+            <div>
+              <h3>Your Profile</h3>
+              <p className="st-card-desc">Current session details</p>
+            </div>
+            <span className="st-badge st-badge-active">Active</span>
           </div>
 
-          <div className="simple-profile-box">
-            <div className="simple-avatar">
-              {currentUserEmail.charAt(0).toUpperCase()}
-            </div>
-            <div className="simple-profile-details">
-              <span className="simple-label">Logged In Email ID</span>
-              <div className="simple-email-row">
-                <strong className="simple-email-text">{currentUserEmail}</strong>
-                <button
-                  type="button"
-                  className="simple-copy-btn"
-                  onClick={() => handleCopy(currentUserEmail)}
-                  title="Copy email address"
-                >
-                  {copiedEmail === currentUserEmail ? "✓ Copied" : "Copy"}
+          <div className="st-profile">
+            <div className="st-avatar">{currentUserEmail.charAt(0).toUpperCase()}</div>
+            <div className="st-profile-info">
+              <span className="st-label">Email</span>
+              <div className="st-row">
+                <strong>{currentUserEmail}</strong>
+                <button type="button" className="st-copy" onClick={() => handleCopy(currentUserEmail)}>
+                  {copiedEmail === currentUserEmail ? "Copied" : "Copy"}
                 </button>
               </div>
-              <span className="simple-role-tag">
-                <i className="fa-solid fa-shield-halved"></i> Administrator
+              <span className="st-role">
+                <i className="fa-solid fa-shield-halved" /> Administrator
               </span>
             </div>
           </div>
         </div>
 
-        {/* 2. Administrator Emails */}
-        <div className="simple-settings-card">
-          <div className="simple-card-header">
-            <div className="simple-card-title">
-              <i className="fa-solid fa-users-gear"></i>
-              <h3>Administrator Emails</h3>
+        {/* Administrators */}
+        <div className="st-card">
+          <div className="st-card-header">
+            <div className="st-card-icon">
+              <i className="fa-solid fa-users-gear" />
             </div>
-            <span className="badge badge-type">{ADMIN_EMAILS.length} Administrators</span>
+            <div>
+              <h3>Administrators</h3>
+              <p className="st-card-desc">Accounts with full access</p>
+            </div>
+            <span className="st-badge">{ADMIN_EMAILS.length}</span>
           </div>
 
-          <p className="simple-desc">
-            Authorized administrator accounts with full permissions to manage forms, bugs, and system settings.
-          </p>
-
-          <div className="simple-admin-list">
+          <div className="st-admin-list">
             {ADMIN_EMAILS.map((admin) => (
-              <div key={admin.email} className="simple-admin-item">
-                <div className="simple-admin-avatar">
-                  <i className="fa-solid fa-user-shield"></i>
+              <div key={admin.email} className="st-admin-item">
+                <div className="st-admin-avatar">
+                  <i className="fa-solid fa-user-shield" />
                 </div>
-                <div className="simple-admin-info">
-                  <div className="simple-admin-top">
+                <div className="st-admin-info">
+                  <div className="st-admin-top">
                     <h4>{admin.name}</h4>
-                    <span className="badge" style={{ background: "var(--primary-subtle)", color: "var(--primary)", fontSize: "11px" }}>
-                      {admin.role}
-                    </span>
+                    <span className="st-role-badge">{admin.role}</span>
                   </div>
-                  <div className="simple-email-row">
-                    <code className="simple-code-email">{admin.email}</code>
-                    <button
-                      type="button"
-                      className="simple-copy-btn"
-                      onClick={() => handleCopy(admin.email)}
-                      title="Copy administrator email"
-                    >
-                      {copiedEmail === admin.email ? "✓ Copied" : "Copy"}
+                  <div className="st-row">
+                    <code className="st-email-code">{admin.email}</code>
+                    <button type="button" className="st-copy" onClick={() => handleCopy(admin.email)}>
+                      {copiedEmail === admin.email ? "Copied" : "Copy"}
                     </button>
                   </div>
                 </div>
@@ -124,88 +103,68 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* 3. Dark and Light Mode Switch */}
-        <div className="simple-settings-card">
-          <div className="simple-card-header">
-            <div className="simple-card-title">
-              <i className="fa-solid fa-circle-half-stroke"></i>
-              <h3>Theme Preferences</h3>
+        {/* Theme */}
+        <div className="st-card">
+          <div className="st-card-header">
+            <div className="st-card-icon">
+              <i className="fa-solid fa-circle-half-stroke" />
             </div>
-            <span className="badge" style={{ fontSize: "12px" }}>
-              {dark ? "🌙 Dark Mode" : "☀️ Light Mode"}
-            </span>
+            <div>
+              <h3>Appearance</h3>
+              <p className="st-card-desc">Switch between light and dark mode</p>
+            </div>
+            <span className="st-badge">{dark ? "Dark" : "Light"}</span>
           </div>
 
-          <p className="simple-desc">
-            Toggle between light and dark appearance for your workspace.
-          </p>
-
-          <div className="simple-theme-toggle-row">
+          <div className="st-theme-row">
             <button
               type="button"
-              className={`simple-theme-btn ${!dark ? "active" : ""}`}
-              onClick={() => {
-                if (dark) toggle();
-              }}
+              className={`st-theme-btn ${!dark ? "active" : ""}`}
+              onClick={() => { if (dark) toggle(); }}
             >
-              <div className="simple-theme-btn-icon light">
-                <i className="fa-solid fa-sun"></i>
+              <div className="st-theme-icon light">
+                <i className="fa-solid fa-sun" />
               </div>
-              <div className="simple-theme-btn-text">
-                <strong>Light Mode</strong>
-                <small>Clean, high-contrast daytime interface</small>
+              <div className="st-theme-text">
+                <strong>Light</strong>
+                <small>Clean, high-contrast</small>
               </div>
-              {!dark && (
-                <i className="fa-solid fa-circle-check simple-check-icon"></i>
-              )}
+              {!dark && <i className="fa-solid fa-circle-check st-check" />}
             </button>
 
             <button
               type="button"
-              className={`simple-theme-btn ${dark ? "active" : ""}`}
-              onClick={() => {
-                if (!dark) toggle();
-              }}
+              className={`st-theme-btn ${dark ? "active" : ""}`}
+              onClick={() => { if (!dark) toggle(); }}
             >
-              <div className="simple-theme-btn-icon dark">
-                <i className="fa-solid fa-moon"></i>
+              <div className="st-theme-icon dark">
+                <i className="fa-solid fa-moon" />
               </div>
-              <div className="simple-theme-btn-text">
-                <strong>Dark Mode</strong>
-                <small>Sleek dark look, comfortable for low light</small>
+              <div className="st-theme-text">
+                <strong>Dark</strong>
+                <small>Easy on the eyes</small>
               </div>
-              {dark && (
-                <i className="fa-solid fa-circle-check simple-check-icon"></i>
-              )}
+              {dark && <i className="fa-solid fa-circle-check st-check" />}
             </button>
           </div>
         </div>
 
-        {/* 4. Sign Out Option */}
-        <div className="simple-settings-card simple-danger-card">
-          <div className="simple-card-header">
-            <div className="simple-card-title" style={{ color: "#ef4444" }}>
-              <i className="fa-solid fa-arrow-right-from-bracket"></i>
-              <h3>Account Session</h3>
+        {/* Sign Out */}
+        <div className="st-card st-card-danger">
+          <div className="st-card-header">
+            <div className="st-card-icon danger">
+              <i className="fa-solid fa-arrow-right-from-bracket" />
+            </div>
+            <div>
+              <h3>Sign Out</h3>
+              <p className="st-card-desc">Disconnect from your current session</p>
             </div>
           </div>
 
-          <div className="simple-signout-row">
-            <div>
-              <strong style={{ fontSize: "14.5px", display: "block", color: "var(--text)" }}>
-                Sign Out of Your Account
-              </strong>
-              <span className="simple-desc" style={{ marginTop: "2px", display: "block" }}>
-                Safely disconnect and exit your current session on this browser.
-              </span>
-            </div>
-
-            <button
-              type="button"
-              className="simple-signout-btn"
-              onClick={handleSignOut}
-            >
-              <i className="fa-solid fa-right-from-bracket"></i> Sign Out
+          <div className="st-signout-row">
+            <p>Safely exit your account on this browser.</p>
+            <button type="button" className="st-signout-btn" onClick={handleSignOut}>
+              <i className="fa-solid fa-right-from-bracket" /> Sign Out
             </button>
           </div>
         </div>

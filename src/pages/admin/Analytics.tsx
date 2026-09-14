@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { getStats, type Stats } from "../../lib/api";
+import { useToast } from "../../components/Toast";
+import Skeleton from "../../components/Skeleton";
 
 interface BarData {
   label: string;
@@ -45,19 +47,30 @@ function BarChart({
 export default function Analytics() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const { addToast } = useToast();
 
   useEffect(() => {
     getStats()
       .then(setStats)
-      .catch((err) => console.error("Failed to load stats:", err))
+      .catch((err) => {
+        console.error("Failed to load stats:", err);
+        addToast("Failed to load analytics", "error");
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [addToast]);
 
   if (loading) {
     return (
-      <div className="admin-loading">
-        <p>Loading analytics...</p>
-      </div>
+      <>
+        <div className="admin-head">
+          <div>
+            <h1>Analytics</h1>
+            <p>Overview of your bug tracking metrics.</p>
+          </div>
+        </div>
+        <Skeleton type="stat" />
+        <Skeleton type="chart" />
+      </>
     );
   }
 

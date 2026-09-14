@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   getBugs,
   updateBug,
@@ -16,27 +16,43 @@ import {
   type Priority,
   type BugStatus,
 } from "../../lib/forms";
+import { useToast } from "../../components/Toast";
+import Skeleton from "../../components/Skeleton";
 
 export default function BugDashboard() {
   const [bugs, setBugs] = useState<Bug[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<BugFilters>({});
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingBug, setEditingBug] = useState<Bug | null>(null);
   const [editTagInput, setEditTagInput] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const { addToast } = useToast();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [search]);
 
   const loadBugs = useCallback(async () => {
     try {
-      const data = await getBugs({ ...filters, search: search || undefined });
+      const data = await getBugs({ ...filters, search: debouncedSearch || undefined });
       setBugs(data);
     } catch (err) {
       console.error("Failed to load bugs:", err);
+      addToast("Failed to load bugs", "error");
     } finally {
       setLoading(false);
     }
-  }, [filters, search]);
+  }, [filters, debouncedSearch, addToast]);
 
   useEffect(() => {
     loadBugs();
@@ -48,6 +64,7 @@ export default function BugDashboard() {
       setBugs((prev) => prev.map((b) => (b.formId === formId ? updated : b)));
     } catch (err) {
       console.error("Failed to update status:", err);
+      addToast("Failed to update status", "error");
     }
   };
 
@@ -83,8 +100,10 @@ export default function BugDashboard() {
         prev.map((b) => (b.formId === editingBug.formId ? updated : b))
       );
       setEditingBug(null);
+      addToast("Bug updated successfully", "success");
     } catch (err) {
       console.error("Failed to update bug:", err);
+      addToast("Failed to update bug", "error");
     } finally {
       setSavingEdit(false);
     }
@@ -96,8 +115,10 @@ export default function BugDashboard() {
       await deleteBug(formId);
       setBugs((prev) => prev.filter((b) => b.formId !== formId));
       if (editingBug?.formId === formId) setEditingBug(null);
+      addToast("Bug deleted", "success");
     } catch (err) {
       console.error("Failed to delete bug:", err);
+      addToast("Failed to delete bug", "error");
     }
   };
 
@@ -122,6 +143,7 @@ export default function BugDashboard() {
   };
 
   const bulkStatusChange = async (status: BugStatus) => {
+    const count = selected.size;
     for (const formId of selected) {
       try {
         const updated = await updateBug(formId, { status });
@@ -133,6 +155,7 @@ export default function BugDashboard() {
       }
     }
     setSelected(new Set());
+    addToast(`${count} bug(s) updated to ${status}`, "success");
   };
 
   const openCount = bugs.filter((b) => b.status === "Open").length;
@@ -146,9 +169,16 @@ export default function BugDashboard() {
 
   if (loading) {
     return (
-      <div className="admin-loading">
-        <p>Loading bugs...</p>
-      </div>
+      <>
+        <div className="admin-head">
+          <div>
+            <h1>Bug Dashboard</h1>
+            <p>Track, customize, and manage all reported bugs.</p>
+          </div>
+        </div>
+        <Skeleton type="stat" />
+        <Skeleton type="table" />
+      </>
     );
   }
 
@@ -312,17 +342,17 @@ export default function BugDashboard() {
             <tbody>
               {bugs.map((b) => (
                 <tr key={b.formId}>
-                  <td>
+                  <td data-label="">
                     <input
                       type="checkbox"
                       checked={selected.has(b.formId)}
                       onChange={() => toggleSelect(b.formId)}
                     />
                   </td>
-                  <td>
+                  <td data-label="ID">
                     <code style={{ fontSize: "12px" }}>{b.formId}</code>
                   </td>
-                  <td>
+                  <td data-label="Title">
                     <strong
                       style={{ cursor: "pointer", color: "var(--primary)" }}
                       onClick={() => startEditing(b)}
@@ -342,7 +372,7 @@ export default function BugDashboard() {
                       </div>
                     )}
                   </td>
-                  <td>
+                  <td data-label="Status">
                     <select
                       value={b.status}
                       onChange={(e) =>
@@ -357,26 +387,26 @@ export default function BugDashboard() {
                       ))}
                     </select>
                   </td>
-                  <td>
+                  <td data-label="Severity">
                     <span
                       className={`badge sev-${b.severity.toLowerCase()}`}
                     >
                       {b.severity}
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Priority">
                     <span className={`badge badge-${b.priority.toLowerCase()}`}>
                       {b.priority}
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Type">
                     <span className="badge badge-type">{b.bugType}</span>
                   </td>
-                  <td style={{ color: "var(--muted)" }}>{b.assignee}</td>
-                  <td style={{ fontSize: "12px", color: "var(--faint)" }}>
+                  <td data-label="Assignee" style={{ color: "var(--muted)" }}>{b.assignee}</td>
+                  <td data-label="Updated" style={{ fontSize: "12px", color: "var(--faint)" }}>
                     {new Date(b.updatedAt).toLocaleDateString()}
                   </td>
-                  <td>
+                  <td data-label="Actions">
                     <div style={{ display: "flex", gap: "8px" }}>
                       <button
                         className="btn sm ghost"

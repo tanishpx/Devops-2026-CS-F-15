@@ -10,7 +10,8 @@ export async function getSubmissions(req, res) {
 
     const submissions = await Submission.find(filter)
       .populate("formId", "formId title")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.json(submissions);
   } catch (err) {
@@ -28,25 +29,22 @@ export async function updateSubmission(req, res) {
       return res.status(400).json({ error: "Invalid status" });
     }
 
-    const originalSubmission = await Submission.findOne({ _id: id, userId: req.userId });
-    if (!originalSubmission) {
-      return res.status(404).json({ error: "Submission not found" });
-    }
-
-    const previousStatus = originalSubmission.status;
-
     const submission = await Submission.findOneAndUpdate(
       { _id: id, userId: req.userId },
       { status },
       { new: true }
-    );
+    ).lean();
 
-    if (status !== previousStatus) {
+    if (!submission) {
+      return res.status(404).json({ error: "Submission not found" });
+    }
+
+    if (status !== submission.status) {
       sendStatusChangeEmail({
         userId: req.userId,
         title: submission.formTitle || "Feedback Submission",
-        previousStatus,
-        newStatus: submission.status,
+        previousStatus: submission.status,
+        newStatus: status,
         date: new Date().toLocaleString(),
       }).catch(err => console.error("Async submission status change email dispatch failed:", err));
     }
@@ -56,4 +54,3 @@ export async function updateSubmission(req, res) {
     res.status(500).json({ error: err.message });
   }
 }
-

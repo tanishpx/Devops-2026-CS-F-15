@@ -1,7 +1,11 @@
-import "dotenv/config";
+import dotenv from "dotenv";
 import dns from "dns";
 
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
+
+// Load server .env first, then fall back to root .env
+dotenv.config({ path: new URL("./.env", import.meta.url) });
+dotenv.config();
 
 import express from "express";
 import cors from "cors";
@@ -49,37 +53,48 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// Middleware to check MongoDB connection before processing requests
+app.use("/api", (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      error: "Database not connected yet. Please try again.",
+      readyState: mongoose.connection.readyState,
+    });
+  }
+  next();
+});
+
 app.use("/api/bugs", bugsRouter);
 app.use("/api/submissions", submissionsRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/settings", settingsRouter);
 
+async function startServer() {
+  if (MONGODB_URI) {
+    try {
+      await mongoose.connect(MONGODB_URI, {
+        dbName: "bugpilot",
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 10000,
+        maxPoolSize: 10,
+        minPoolSize: 2,
+      });
+      console.log("Connected to MongoDB → database: bugpilot");
+    } catch (err) {
+      console.error("MongoDB connection failed:", err.message);
+      console.warn("Starting server without database. Queries will fail.");
+    }
+  } else {
+    console.warn("MONGODB_URI not set. Starting server without database.");
+  }
 
-app.use("/api/feedback/:formId", (req, res, next) => {
-  req.params.formId;
-  next();
-});
-
-// Connect to MongoDB immediately
-if (MONGODB_URI) {
-  mongoose
-    .connect(MONGODB_URI, { dbName: "bugpilot" })
-    .then(() => console.log("Connected to MongoDB → database: bugpilot"))
-    .catch((err) =>
-      console.warn(
-        "MongoDB connection failed. Starting server without database. " +
-          err.message
-      )
-    );
-} else {
-  console.warn("MONGODB_URI not set. Starting server without database.");
+  if (!process.env.VERCEL) {
+    app.listen(PORT, () => {
+      console.log(`BugPilot server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
-// Only start the listener if not running in Vercel environment
-if (!process.env.VERCEL) {
-  app.listen(PORT, () => {
-    console.log(`BugPilot server running on http://localhost:${PORT}`);
-  });
-}
+startServer();
 
 export default app;

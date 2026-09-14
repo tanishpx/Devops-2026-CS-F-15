@@ -17,7 +17,6 @@ export default function FeedbackFormPage() {
   const [state, setState] = useState<FormState>("loading");
   const [form, setForm] = useState<PublicForm | null>(null);
 
-  // Form input states
   const [bugTitle, setBugTitle] = useState("");
   const [severity, setSeverity] = useState<Severity>("Medium");
   const [bugType, setBugType] = useState<BugType>("UI");
@@ -28,7 +27,6 @@ export default function FeedbackFormPage() {
   const [attachments, setAttachments] = useState<AttachedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Submission handling
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [submissionId, setSubmissionId] = useState("");
@@ -39,7 +37,6 @@ export default function FeedbackFormPage() {
 
   useEffect(() => {
     if (!formId) return;
-
     getPublicForm(formId)
       .then((data) => {
         setForm(data);
@@ -54,30 +51,26 @@ export default function FeedbackFormPage() {
         }
         setState("form");
       })
-      .catch(() => {
-        setState("not-found");
-      });
+      .catch(() => setState("not-found"));
   }, [formId]);
 
   const handleAutoDetectSystem = () => {
-    const userAgent = navigator.userAgent;
+    const ua = navigator.userAgent;
     let browser = "Browser";
     let os = "OS";
 
-    if (userAgent.includes("Win")) os = "Windows";
-    else if (userAgent.includes("Mac")) os = "macOS";
-    else if (userAgent.includes("Linux")) os = "Linux";
-    else if (userAgent.includes("Android")) os = "Android";
-    else if (userAgent.includes("like Mac")) os = "iOS";
+    if (ua.includes("Win")) os = "Windows";
+    else if (ua.includes("Mac")) os = "macOS";
+    else if (ua.includes("Linux")) os = "Linux";
+    else if (ua.includes("Android")) os = "Android";
+    else if (ua.includes("like Mac")) os = "iOS";
 
-    if (userAgent.includes("Edg/")) browser = "Edge";
-    else if (userAgent.includes("Chrome/") && !userAgent.includes("Edg/")) browser = "Chrome";
-    else if (userAgent.includes("Safari/") && !userAgent.includes("Chrome/")) browser = "Safari";
-    else if (userAgent.includes("Firefox/")) browser = "Firefox";
+    if (ua.includes("Edg/")) browser = "Edge";
+    else if (ua.includes("Chrome/") && !ua.includes("Edg/")) browser = "Chrome";
+    else if (ua.includes("Safari/") && !ua.includes("Chrome/")) browser = "Safari";
+    else if (ua.includes("Firefox/")) browser = "Firefox";
 
-    const screenRes = `${window.screen.width}x${window.screen.height}`;
-    const detected = `${browser} on ${os} (${screenRes})`;
-    setEnvironment(detected);
+    setEnvironment(`${browser} on ${os} (${window.screen.width}x${window.screen.height})`);
   };
 
   const handleInsertStepsTemplate = () => {
@@ -87,28 +80,21 @@ export default function FeedbackFormPage() {
 
   const handleFilesSelected = (files: FileList | null) => {
     if (!files) return;
-    const maxFiles = 5;
-    const maxSize = 10 * 1024 * 1024; // 10MB
-
     Array.from(files).forEach((file) => {
-      if (attachments.length >= maxFiles) {
-        setErrorMsg(`Maximum of ${maxFiles} attachments allowed.`);
+      if (attachments.length >= 5) {
+        setErrorMsg("Maximum of 5 attachments allowed.");
         return;
       }
-      if (file.size > maxSize) {
-        setErrorMsg(`File "${file.name}" exceeds maximum allowed size of 10MB.`);
+      if (file.size > 10 * 1024 * 1024) {
+        setErrorMsg(`File "${file.name}" exceeds 10MB limit.`);
         return;
       }
-
       const reader = new FileReader();
       reader.onload = () => {
-        const newFile: AttachedFile = {
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          dataUrl: reader.result as string,
-        };
-        setAttachments((prev) => [...prev, newFile]);
+        setAttachments((prev) => [
+          ...prev,
+          { name: file.name, size: file.size, type: file.type, dataUrl: reader.result as string },
+        ]);
       };
       reader.readAsDataURL(file);
     });
@@ -129,15 +115,13 @@ export default function FeedbackFormPage() {
     if (!formId || submitting) return;
 
     if (!bugTitle.trim()) {
-      setErrorMsg("Please enter a title / summary for the bug.");
+      setErrorMsg("Please enter a title for the bug.");
       return;
     }
-
     if (!bugDescription.trim()) {
       setErrorMsg("Please provide a description of the bug.");
       return;
     }
-
     if (!stepsToReproduce.trim()) {
       setErrorMsg("Please provide steps to reproduce the issue.");
       return;
@@ -158,14 +142,11 @@ export default function FeedbackFormPage() {
         reporterEmail: reporterEmail.trim(),
         attachments: attachments.map((a) => a.dataUrl || a.name),
       });
-
       setSubmissionId(res.id || `SUB-${Date.now().toString().slice(-6)}`);
       setSubmittedTitle(bugTitle.trim());
       setState("success");
     } catch (err) {
-      setErrorMsg(
-        err instanceof Error ? err.message : "Submission failed. Please try again."
-      );
+      setErrorMsg(err instanceof Error ? err.message : "Submission failed. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -184,90 +165,81 @@ export default function FeedbackFormPage() {
 
   if (state === "loading") {
     return (
-      <div className="gate">
-        <span className="logo-mark">◈</span>
-        <p>Loading form...</p>
+      <div className="fp-loading">
+        <div className="spinner" />
       </div>
     );
   }
 
   if (state === "not-found") {
     return (
-      <div className="gate">
-        <span className="logo-mark">◈</span>
-        <h1>Form not found</h1>
-        <p>
-          This feedback form doesn't exist or is no longer active.
-        </p>
-        <Link to="/" className="btn primary lg">
-          Go home
-        </Link>
+      <div className="fp-page">
+        <div className="fp-card fp-card-center">
+          <div className="fp-empty-icon">
+            <i className="fa-solid fa-magnifying-glass" />
+          </div>
+          <h1>Form not found</h1>
+          <p>This feedback form doesn't exist or is no longer active.</p>
+          <Link to="/" className="fp-btn fp-btn-primary">
+            Go home
+          </Link>
+        </div>
       </div>
     );
   }
 
   if (state === "success") {
     return (
-      <div className="saas-container">
-        <div className="saas-card saas-success-card">
-          <div className="saas-success-icon-wrap">
-            <i className="fa-solid fa-circle-check saas-success-icon"></i>
+      <div className="fp-page">
+        <div className="fp-card fp-card-center">
+          <div className="fp-success-icon">
+            <i className="fa-solid fa-check" />
           </div>
-          <h1 className="saas-title" style={{ textAlign: "center", marginBottom: "8px" }}>
-            Bug Report Submitted!
-          </h1>
-          <p className="saas-subtitle" style={{ textAlign: "center", marginBottom: "24px" }}>
-            Thank you for reporting this issue. Our engineering team has received your report and will investigate it shortly.
-          </p>
+          <h1>Submitted</h1>
+          <p>Thank you for reporting this issue. We'll investigate it shortly.</p>
 
-          <div className="saas-receipt-card">
-            <div className="saas-receipt-row">
-              <span className="saas-receipt-label">Submission ID</span>
-              <div className="saas-receipt-copy">
-                <code>#{submissionId}</code>
-                <button
-                  type="button"
-                  className="saas-copy-badge-btn"
-                  onClick={() => {
-                    navigator.clipboard.writeText(submissionId);
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                  }}
-                >
-                  {copied ? "Copied!" : "Copy"}
-                </button>
-              </div>
+          <div className="fp-receipt">
+            <div className="fp-receipt-row">
+              <span className="fp-receipt-label">ID</span>
+              <code className="fp-receipt-value">#{submissionId}</code>
+              <button
+                type="button"
+                className="fp-copy-btn"
+                onClick={() => {
+                  navigator.clipboard.writeText(submissionId);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+              >
+                {copied ? "Copied" : "Copy"}
+              </button>
             </div>
             {submittedTitle && (
-              <div className="saas-receipt-row">
-                <span className="saas-receipt-label">Issue Title</span>
-                <span className="saas-receipt-value">{submittedTitle}</span>
+              <div className="fp-receipt-row">
+                <span className="fp-receipt-label">Issue</span>
+                <span className="fp-receipt-value">{submittedTitle}</span>
               </div>
             )}
-            <div className="saas-receipt-row">
-              <span className="saas-receipt-label">Severity</span>
+            <div className="fp-receipt-row">
+              <span className="fp-receipt-label">Severity</span>
               <span className={`badge sev-${severity.toLowerCase()}`}>{severity}</span>
             </div>
-            <div className="saas-receipt-row">
-              <span className="saas-receipt-label">Bug Category</span>
+            <div className="fp-receipt-row">
+              <span className="fp-receipt-label">Type</span>
               <span className="badge badge-type">{bugType}</span>
             </div>
-            <div className="saas-receipt-row">
-              <span className="saas-receipt-label">Status</span>
+            <div className="fp-receipt-row">
+              <span className="fp-receipt-label">Status</span>
               <span className="badge status-open">New</span>
             </div>
           </div>
 
-          <div className="saas-actions" style={{ justifyContent: "center", gap: "16px", marginTop: "28px" }}>
-            <button
-              type="button"
-              className="saas-btn secondary"
-              onClick={handleResetForm}
-            >
-              <i className="fa-solid fa-plus"></i> Submit Another Issue
+          <div className="fp-actions">
+            <button type="button" className="fp-btn fp-btn-outline" onClick={handleResetForm}>
+              <i className="fa-solid fa-plus" /> Submit another
             </button>
-            <Link to="/" className="saas-btn primary">
-              <i className="fa-solid fa-house"></i> Return to Home
+            <Link to="/" className="fp-btn fp-btn-primary">
+              <i className="fa-solid fa-house" /> Home
             </Link>
           </div>
         </div>
@@ -276,180 +248,133 @@ export default function FeedbackFormPage() {
   }
 
   return (
-    <div className="saas-container">
-      <div className="saas-card">
-        {/* Form Header */}
-        <div className="saas-header">
-          <div className="saas-header-top">
-            <span className="saas-badge">
-              <i className="fa-solid fa-bug" style={{ marginRight: "6px" }}></i>
-              {form?.bugType ? `${form.bugType.toUpperCase()} REPORT` : "BUG REPORT"}
+    <div className="fp-page">
+      <div className="fp-card">
+        <div className="fp-header">
+          <div className="fp-header-top">
+            <span className="fp-badge">
+              <i className="fa-solid fa-bug" />
+              {form?.bugType ? `${form.bugType} Report` : "Bug Report"}
             </span>
-            {form?.formId && (
-              <span className="saas-form-tag">ID: {form.formId}</span>
-            )}
+            {form?.formId && <span className="fp-id-tag">{form.formId}</span>}
           </div>
-          <h1 className="saas-title">{form?.title || "Submit a bug report"}</h1>
-          <p className="saas-subtitle">
-            {form?.description || "Help us squash bugs by providing clear and detailed information."}
-          </p>
+          <h1>{form?.title || "Submit a bug report"}</h1>
+          <p>{form?.description || "Help us squash bugs by providing clear and detailed information."}</p>
         </div>
 
-        <form className="saas-form" onSubmit={handleSubmit}>
-          <div className="saas-grid-2">
-            {/* Title / Summary Field */}
-            <div className="saas-field full-width">
-              <label className="saas-label">
-                <span>Issue Title / Summary *</span>
-                <span className="saas-char-counter">{bugTitle.length} / 120</span>
+        <form onSubmit={handleSubmit}>
+          <div className="fp-grid">
+            <div className="fp-field fp-full">
+              <label className="fp-label">
+                <span>Title *</span>
+                <span className="fp-counter">{bugTitle.length}/120</span>
               </label>
               <input
                 type="text"
-                className="saas-input"
+                className="fp-input"
                 value={bugTitle}
                 maxLength={120}
                 onChange={(e) => setBugTitle(e.target.value)}
-                placeholder="e.g. Checkout payment button unresponsive on iOS Safari"
+                placeholder="e.g. Payment button unresponsive on iOS"
                 required
               />
-              <span className="saas-helper">
-                A concise summary that helps developers quickly identify the problem.
-              </span>
             </div>
 
-            {/* Severity Field */}
-            <div className="saas-field">
-              <label className="saas-label">
-                <span>Severity Level *</span>
-              </label>
-              <div className="saas-severity-picker">
+            <div className="fp-field">
+              <label className="fp-label">Severity *</label>
+              <div className="fp-severity">
                 {SEVERITIES.map((s) => (
                   <button
                     key={s}
                     type="button"
-                    className={`saas-severity-btn sev-${s.toLowerCase()} ${severity === s ? "active" : ""}`}
+                    className={`fp-sev-btn sev-${s.toLowerCase()} ${severity === s ? "active" : ""}`}
                     onClick={() => setSeverity(s)}
                   >
-                    <span className="sev-indicator"></span>
+                    <span className="fp-sev-dot" />
                     {s}
                   </button>
                 ))}
               </div>
-              <span className="saas-helper">Impact level of this issue on your workflow.</span>
             </div>
 
-            {/* Bug Type Field */}
-            <div className="saas-field">
-              <label className="saas-label">
-                <span>Category / Bug Type *</span>
-              </label>
+            <div className="fp-field">
+              <label className="fp-label">Category *</label>
               <select
-                className="saas-select"
+                className="fp-select"
                 value={bugType}
                 onChange={(e) => setBugType(e.target.value as BugType)}
               >
                 {BUG_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
+                  <option key={t} value={t}>{t}</option>
                 ))}
               </select>
-              <span className="saas-helper">Select the category that best matches this bug.</span>
             </div>
 
-            {/* Describe the Bug Field */}
-            <div className="saas-field full-width">
-              <label className="saas-label">
-                <span>Describe the Bug *</span>
-                <span className="saas-char-counter">
-                  {bugDescription.length} / 1000
-                </span>
+            <div className="fp-field fp-full">
+              <label className="fp-label">
+                <span>Description *</span>
+                <span className="fp-counter">{bugDescription.length}/1000</span>
               </label>
               <textarea
-                className="saas-textarea"
-                rows={5}
+                className="fp-textarea"
+                rows={4}
                 maxLength={1000}
                 value={bugDescription}
                 onChange={(e) => setBugDescription(e.target.value)}
-                placeholder="What happened? What did you expect to happen instead?"
+                placeholder="What happened? What did you expect instead?"
                 required
               />
             </div>
 
-            {/* Steps to Reproduce Field */}
-            <div className="saas-field full-width">
-              <div className="saas-label-with-action">
-                <label className="saas-label">
-                  <span>Steps to Reproduce *</span>
-                </label>
-                <button
-                  type="button"
-                  className="saas-inline-btn"
-                  onClick={handleInsertStepsTemplate}
-                >
-                  <i className="fa-solid fa-list-ol"></i> Insert Template
+            <div className="fp-field fp-full">
+              <div className="fp-label-row">
+                <label className="fp-label">Steps to reproduce *</label>
+                <button type="button" className="fp-link-btn" onClick={handleInsertStepsTemplate}>
+                  <i className="fa-solid fa-list-ol" /> Template
                 </button>
               </div>
               <textarea
-                className="saas-textarea"
-                rows={4}
+                className="fp-textarea"
+                rows={3}
                 value={stepsToReproduce}
                 onChange={(e) => setStepsToReproduce(e.target.value)}
-                placeholder="1. Go to page...&#10;2. Click on button...&#10;3. Observe error message..."
+                placeholder="1. Go to page...&#10;2. Click button...&#10;3. See error..."
                 required
               />
-              <span className="saas-helper">
-                Step-by-step instructions so the team can recreate and fix the issue.
-              </span>
             </div>
 
-            {/* Device / Environment Field */}
-            <div className="saas-field">
-              <div className="saas-label-with-action">
-                <label className="saas-label">
-                  <span>Device & Environment</span>
-                </label>
-                <button
-                  type="button"
-                  className="saas-inline-btn"
-                  onClick={handleAutoDetectSystem}
-                  title="Auto-detect operating system, browser, and screen size"
-                >
-                  <i className="fa-solid fa-wand-magic-sparkles"></i> Auto-detect
+            <div className="fp-field">
+              <div className="fp-label-row">
+                <label className="fp-label">Environment</label>
+                <button type="button" className="fp-link-btn" onClick={handleAutoDetectSystem}>
+                  <i className="fa-solid fa-wand-magic-sparkles" /> Detect
                 </button>
               </div>
               <input
                 type="text"
-                className="saas-input"
+                className="fp-input"
                 value={environment}
                 onChange={(e) => setEnvironment(e.target.value)}
-                placeholder="e.g. Chrome 122 on Windows 11, iPhone 15 iOS 17"
+                placeholder="e.g. Chrome on Windows"
               />
-              <span className="saas-helper">Browser, OS, device, or screen resolution.</span>
             </div>
 
-            {/* Email Field */}
-            <div className="saas-field">
-              <label className="saas-label">
-                <span>Reporter Email (optional)</span>
-              </label>
+            <div className="fp-field">
+              <label className="fp-label">Email (optional)</label>
               <input
                 type="email"
-                className="saas-input"
+                className="fp-input"
                 value={reporterEmail}
                 onChange={(e) => setReporterEmail(e.target.value)}
                 placeholder="you@example.com"
               />
-              <span className="saas-helper">We will only notify you when this bug is resolved.</span>
             </div>
 
-            {/* Attachments Field */}
-            <div className="saas-field full-width">
-              <label className="saas-label">
-                <span>Screenshots & Attachments (optional)</span>
-                <span className="saas-char-counter">{attachments.length} / 5 files</span>
+            <div className="fp-field fp-full">
+              <label className="fp-label">
+                <span>Attachments</span>
+                <span className="fp-counter">{attachments.length}/5</span>
               </label>
-
               <input
                 type="file"
                 ref={fileInputRef}
@@ -461,14 +386,10 @@ export default function FeedbackFormPage() {
                   if (e.target) e.target.value = "";
                 }}
               />
-
               <div
-                className={`saas-upload-area ${isDragging ? "dragging" : ""}`}
+                className={`fp-upload ${isDragging ? "dragging" : ""}`}
                 onClick={() => fileInputRef.current?.click()}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setIsDragging(true);
-                }}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={(e) => {
                   e.preventDefault();
@@ -476,40 +397,30 @@ export default function FeedbackFormPage() {
                   handleFilesSelected(e.dataTransfer.files);
                 }}
               >
-                <i className="fa-solid fa-cloud-arrow-up saas-upload-icon"></i>
-                <div className="saas-upload-title">
-                  Drag & drop screenshots or logs here, or <span>browse files</span>
-                </div>
-                <div className="saas-upload-subtitle">
-                  Supports PNG, JPG, GIF, MP4, PDF, LOG (up to 10MB per file)
-                </div>
+                <i className="fa-solid fa-cloud-arrow-up" />
+                <span>Drop files or <strong>browse</strong></span>
+                <small>PNG, JPG, PDF, LOG up to 10MB</small>
               </div>
 
               {attachments.length > 0 && (
-                <div className="saas-file-list">
+                <div className="fp-files">
                   {attachments.map((file, idx) => (
-                    <div key={idx} className="saas-file-chip">
+                    <div key={idx} className="fp-file-chip">
                       {file.type.startsWith("image/") && file.dataUrl ? (
-                        <img src={file.dataUrl} alt={file.name} className="saas-file-thumb" />
+                        <img src={file.dataUrl} alt={file.name} className="fp-file-thumb" />
                       ) : (
-                        <i className="fa-solid fa-file-lines saas-file-icon"></i>
+                        <i className="fa-solid fa-file-lines" />
                       )}
-                      <div className="saas-file-info">
-                        <span className="saas-file-name" title={file.name}>
-                          {file.name}
-                        </span>
-                        <span className="saas-file-size">{formatFileSize(file.size)}</span>
+                      <div className="fp-file-info">
+                        <span className="fp-file-name">{file.name}</span>
+                        <span className="fp-file-size">{formatFileSize(file.size)}</span>
                       </div>
                       <button
                         type="button"
-                        className="saas-file-remove"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveAttachment(idx);
-                        }}
-                        title="Remove file"
+                        className="fp-file-remove"
+                        onClick={(e) => { e.stopPropagation(); handleRemoveAttachment(idx); }}
                       >
-                        ✕
+                        <i className="fa-solid fa-xmark" />
                       </button>
                     </div>
                   ))}
@@ -519,30 +430,19 @@ export default function FeedbackFormPage() {
           </div>
 
           {errorMsg && (
-            <div className="saas-alert-error">
-              <i className="fa-solid fa-circle-exclamation"></i>
+            <div className="fp-error">
+              <i className="fa-solid fa-circle-exclamation" />
               <span>{errorMsg}</span>
             </div>
           )}
 
-          <div className="saas-actions">
-            <Link to="/" className="saas-btn secondary">
-              Cancel
-            </Link>
-
-            <button
-              className="saas-btn primary"
-              type="submit"
-              disabled={submitting}
-            >
+          <div className="fp-actions">
+            <Link to="/" className="fp-btn fp-btn-outline">Cancel</Link>
+            <button className="fp-btn fp-btn-primary" type="submit" disabled={submitting}>
               {submitting ? (
-                <>
-                  <i className="fa-solid fa-circle-notch fa-spin"></i> Submitting...
-                </>
+                <><i className="fa-solid fa-circle-notch fa-spin" /> Submitting...</>
               ) : (
-                <>
-                  <i className="fa-solid fa-paper-plane"></i> Submit Bug Report
-                </>
+                <><i className="fa-solid fa-paper-plane" /> Submit Report</>
               )}
             </button>
           </div>

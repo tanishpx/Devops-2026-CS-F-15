@@ -4,12 +4,15 @@ import {
   updateSubmission,
   type Submission,
 } from "../../lib/api";
+import { useToast } from "../../components/Toast";
+import Skeleton from "../../components/Skeleton";
 
 export default function Submissions() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const { addToast } = useToast();
 
   const loadSubmissions = useCallback(async () => {
     try {
@@ -17,10 +20,11 @@ export default function Submissions() {
       setSubmissions(data);
     } catch (err) {
       console.error("Failed to load submissions:", err);
+      addToast("Failed to load submissions", "error");
     } finally {
       setLoading(false);
     }
-  }, [filterStatus]);
+  }, [filterStatus, addToast]);
 
   useEffect(() => {
     loadSubmissions();
@@ -32,8 +36,10 @@ export default function Submissions() {
       setSubmissions((prev) =>
         prev.map((s) => (s._id === id ? updated : s))
       );
+      addToast(`Submission marked as ${status}`, "success");
     } catch (err) {
       console.error("Failed to update submission:", err);
+      addToast("Failed to update submission", "error");
     }
   };
 
@@ -50,9 +56,16 @@ export default function Submissions() {
 
   if (loading) {
     return (
-      <div className="admin-loading">
-        <p>Loading submissions...</p>
-      </div>
+      <>
+        <div className="admin-head">
+          <div>
+            <h1>Submissions</h1>
+            <p>Review and triage user-submitted bug reports.</p>
+          </div>
+        </div>
+        <Skeleton type="stat" />
+        <Skeleton type="card" />
+      </>
     );
   }
 
@@ -156,15 +169,10 @@ export default function Submissions() {
               <p className="sub-desc">{s.bugDescription}</p>
 
               {expanded === s._id && (
-                <>
+                <div className="sub-expanded">
                   {s.stepsToReproduce && (
-                    <div style={{ marginTop: "10px" }}>
-                      <strong
-                        style={{
-                          fontSize: "12px",
-                          color: "var(--muted)",
-                        }}
-                      >
+                    <div className="sub-detail-section">
+                      <strong className="sub-detail-label">
                         Steps to reproduce:
                       </strong>
                       <div className="sub-steps">
@@ -173,33 +181,28 @@ export default function Submissions() {
                     </div>
                   )}
                   {s.environment && (
-                    <div style={{ fontSize: "13px", color: "var(--muted)", marginTop: "6px" }}>
-                      <strong>Environment:</strong> {s.environment}
+                    <div className="sub-detail-section">
+                      <strong className="sub-detail-label">Environment:</strong> {s.environment}
                     </div>
                   )}
                   {s.reporterEmail && (
-                    <div style={{ fontSize: "13px", color: "var(--muted)", marginTop: "4px" }}>
-                      <strong>Reporter Email:</strong> {s.reporterEmail}
+                    <div className="sub-detail-section">
+                      <strong className="sub-detail-label">Reporter Email:</strong> {s.reporterEmail}
                     </div>
                   )}
                   {s.attachments && s.attachments.length > 0 && (
-                    <div style={{ marginTop: "12px" }}>
-                      <strong
-                        style={{
-                          fontSize: "12px",
-                          color: "var(--muted)",
-                        }}
-                      >
+                    <div className="sub-detail-section">
+                      <strong className="sub-detail-label">
                         Attachments ({s.attachments.length}):
                       </strong>
-                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "6px" }}>
+                      <div className="sub-attachments">
                         {s.attachments.map((att, idx) => (
                           att.startsWith("data:image/") ? (
-                            <a key={idx} href={att} target="_blank" rel="noreferrer" style={{ display: "inline-block" }}>
+                            <a key={idx} href={att} target="_blank" rel="noreferrer" className="sub-attachment-link">
                               <img
                                 src={att}
                                 alt={`attachment-${idx}`}
-                                style={{ width: "80px", height: "60px", objectFit: "cover", borderRadius: "6px", border: "1px solid var(--border)" }}
+                                className="sub-attachment-img"
                               />
                             </a>
                           ) : (
@@ -207,8 +210,7 @@ export default function Submissions() {
                               key={idx}
                               href={att}
                               download={`attachment-${idx}`}
-                              className="badge"
-                              style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "6px 10px", background: "var(--surface)", border: "1px solid var(--border)" }}
+                              className="sub-attachment-file"
                             >
                               <i className="fa-solid fa-paperclip"></i> Attachment {idx + 1}
                             </a>
@@ -217,7 +219,7 @@ export default function Submissions() {
                       </div>
                     </div>
                   )}
-                </>
+                </div>
               )}
 
               <div className="sub-actions">
@@ -227,7 +229,11 @@ export default function Submissions() {
                     setExpanded(expanded === s._id ? null : s._id)
                   }
                 >
-                  {expanded === s._id ? "Collapse" : "Expand"}
+                  {expanded === s._id ? (
+                    <><i className="fa-solid fa-chevron-up"></i> Collapse</>
+                  ) : (
+                    <><i className="fa-solid fa-chevron-down"></i> Expand</>
+                  )}
                 </button>
                 {s.status === "New" && (
                   <>
@@ -235,23 +241,37 @@ export default function Submissions() {
                       className="btn sm btn-success"
                       onClick={() => handleTriage(s._id, "Accepted")}
                     >
-                      Accept
+                      <i className="fa-solid fa-check"></i> Accept
                     </button>
                     <button
                       className="btn sm btn-danger"
                       onClick={() => handleTriage(s._id, "Rejected")}
                     >
-                      Reject
+                      <i className="fa-solid fa-xmark"></i> Reject
+                    </button>
+                    <button
+                      className="btn sm ghost"
+                      onClick={() => handleTriage(s._id, "Reviewed")}
+                    >
+                      <i className="fa-solid fa-eye"></i> Mark Reviewed
                     </button>
                   </>
                 )}
-                {s.status === "New" && (
-                  <button
-                    className="btn sm ghost"
-                    onClick={() => handleTriage(s._id, "Reviewed")}
-                  >
-                    Mark Reviewed
-                  </button>
+                {s.status === "Reviewed" && (
+                  <>
+                    <button
+                      className="btn sm btn-success"
+                      onClick={() => handleTriage(s._id, "Accepted")}
+                    >
+                      <i className="fa-solid fa-check"></i> Accept
+                    </button>
+                    <button
+                      className="btn sm btn-danger"
+                      onClick={() => handleTriage(s._id, "Rejected")}
+                    >
+                      <i className="fa-solid fa-xmark"></i> Reject
+                    </button>
+                  </>
                 )}
               </div>
             </div>
